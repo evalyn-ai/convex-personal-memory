@@ -185,6 +185,10 @@ await t.run((ctx) => memory.recall(ctx, 'synthetic-namespace'));
 
 `componentApi`, `schema` and `modules` also let a test run the component as its own root app, which is useful for inspecting job rows in evaluations. Run `bun install` and `bun test` from the package root to run the tests.
 
+## Benchmark
+
+`bench/` checks the prompt and validation on 29 synthetic chats with a live model; see the [benchmark guide](bench/README.md).
+
 ## Layout
 
 ```
@@ -193,6 +197,7 @@ src/
   client/index.ts     PersonalMemory class; the package root export
   component/          convex.config.ts, schema.ts, memory.ts, _generated/
   test.ts             convex-test helper
+bench/                live benchmark: cases and runner
 tests/                bun tests through the client
 ```
 

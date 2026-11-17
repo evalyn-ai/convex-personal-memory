@@ -25,7 +25,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "bench": "bun bench/run.ts"
   },
   "peerDependencies": {
     "convex": "^1.49.0",
