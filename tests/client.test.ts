@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { defineSchema } from 'convex/server';
 import { convexTest } from 'convex-test';
+import { defineSchema } from 'convex/server';
 import {
   MAX_MEMORIES,
   PersonalMemory,

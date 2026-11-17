@@ -1,6 +1,6 @@
+import type { TestConvex } from 'convex-test';
 import type { GenericSchema, SchemaDefinition } from 'convex/server';
 import { componentsGeneric } from 'convex/server';
-import type { TestConvex } from 'convex-test';
 import { api } from './component/_generated/api.js';
 import type { ComponentApi } from './component/_generated/component.js';
 import schema from './component/schema.js';
