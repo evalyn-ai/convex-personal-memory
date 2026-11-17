@@ -1,0 +1,42 @@
+{
+  "name": "@evalyn/convex-personal-memory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Convex component that keeps a short, user-controlled list of durable personal memories per namespace.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/evalyn-ai/convex-personal-memory.git"
+  },
+  "keywords": [
+    "convex",
+    "component",
+    "memory",
+    "llm"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/client/index.ts",
+    "./model": "./src/model.ts",
+    "./convex.config": "./src/component/convex.config.ts",
+    "./convex.config.js": "./src/component/convex.config.ts",
+    "./_generated/component.js": "./src/component/_generated/component.ts",
+    "./test": "./src/test.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "peerDependencies": {
+    "convex": "^1.49.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
+    "convex": "^1.49.0",
+    "convex-test": "^0.0.69",
+    "typescript": "^7.0.2",
+    "zod": "^4.6.7"
+  }
+}
