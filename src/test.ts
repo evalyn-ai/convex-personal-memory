@@ -1,5 +1,9 @@
 import type { TestConvex } from 'convex-test';
-import type { GenericSchema, SchemaDefinition } from 'convex/server';
+import type {
+  AnyChildComponents,
+  GenericSchema,
+  SchemaDefinition,
+} from 'convex/server';
 import { componentsGeneric } from 'convex/server';
 import { api } from './component/_generated/api.js';
 import type { ComponentApi } from './component/_generated/component.js';
@@ -22,7 +26,9 @@ export function register<
   Schema extends SchemaDefinition<GenericSchema, boolean>,
 >(t: TestConvex<Schema>, name = 'personalMemory') {
   t.registerComponent(name, schema, modules);
-  return (componentsGeneric() as Record<string, unknown>)[name] as ComponentApi;
+  const components = componentsGeneric() as AnyChildComponents &
+    Record<string, ComponentApi>;
+  return components[name] as ComponentApi;
 }
 
 /** The component's own public API, for running it as the root app in a
