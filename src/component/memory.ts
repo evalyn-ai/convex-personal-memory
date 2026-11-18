@@ -6,7 +6,9 @@ import {
   MAX_MEMORIES,
   type MemoryItem,
   type Operation,
+  operations,
   recallList,
+  reject,
   validateOperations,
 } from '../model.js';
 import { api } from './_generated/api.js';
@@ -237,11 +239,14 @@ export const ingest = mutation({
         items.some((i) => i.evidence.some((e) => e.id === id))
       )
         return { outcome: 'duplicate', memoryIds: [], accepted: false };
-      const result = validateOperations(args.operations, {
-        turn: args.explicit.turn,
-        memoryIds,
-        blockedTopics: [],
-      });
+      const proposal = operations.safeParse(args.operations);
+      const result = proposal.success
+        ? validateOperations(proposal.data, {
+            turn: args.explicit.turn,
+            memoryIds,
+            blockedTopics: [],
+          })
+        : reject('schema_invalid');
       if (!result.operations.length)
         return { outcome: result.outcome, memoryIds: [], accepted: false };
       const source = args.explicit.source.slice(0, 200);
@@ -278,11 +283,14 @@ export const ingest = mutation({
     )
       return finish('stale_generation', 'obsolete');
     const input = JSON.parse(j.input) as { text: string; at: number };
-    const result = validateOperations(args.operations, {
-      turn: input.text,
-      memoryIds,
-      blockedTopics: c.blockedTopics,
-    });
+    const proposal = operations.safeParse(args.operations);
+    const result = proposal.success
+      ? validateOperations(proposal.data, {
+          turn: input.text,
+          memoryIds,
+          blockedTopics: c.blockedTopics,
+        })
+      : reject('schema_invalid');
     const ids = await apply(
       ctx,
       scope,

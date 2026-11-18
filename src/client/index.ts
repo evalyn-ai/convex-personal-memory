@@ -3,6 +3,7 @@ import type {
   GenericMutationCtx,
   GenericQueryCtx,
 } from 'convex/server';
+import type { Value } from 'convex/values';
 import type { ComponentApi } from '../component/_generated/component.js';
 import type { Category, MemoryItem, RecallItem } from '../model.js';
 
@@ -98,7 +99,7 @@ export class PersonalMemory {
     ctx: RunMutationCtx,
     namespace: string,
     jobId: string,
-    operations: unknown,
+    operations: Value,
   ): Promise<IngestResult> {
     return ctx.runMutation(this.component.memory.ingest, {
       namespace,

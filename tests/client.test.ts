@@ -1,11 +1,13 @@
 import { expect, test } from 'bun:test';
 import { convexTest } from 'convex-test';
 import { defineSchema } from 'convex/server';
+import type { Value } from 'convex/values';
 import {
   MAX_MEMORIES,
   PersonalMemory,
   validateOperations,
 } from '../src/client/index.js';
+import { operations } from '../src/model.js';
 import { componentApi, modules, register, schema } from '../src/test.js';
 
 /** A bare app that mounts the component; every call goes through the client
@@ -23,7 +25,7 @@ function setup() {
     text: string,
     operations: (claimed: {
       memories: { id: string; text: string }[];
-    }) => unknown,
+    }) => Value,
     key: string = crypto.randomUUID(),
     namespace = ns,
   ) => {
@@ -379,7 +381,7 @@ test('purge deletes one namespace and listNamespaces finds the rest', async () =
 
 test('validateOperations is usable on its own', () => {
   expect(
-    validateOperations([add('A.', 'A.')], {
+    validateOperations(operations.parse([add('A.', 'A.')]), {
       turn: 'A.',
       memoryIds: Array.from({ length: MAX_MEMORIES }, (_, n) => `m${n}`),
       blockedTopics: [],

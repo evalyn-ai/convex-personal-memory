@@ -7,6 +7,7 @@
  * Any OpenAI-compatible endpoint works through OPENAI_BASE_URL. */
 import { parseArgs } from 'node:util';
 import { convexTest } from 'convex-test';
+import type { Value } from 'convex/values';
 import { z } from 'zod/v4';
 import {
   memoryResponseFormat,
@@ -101,7 +102,7 @@ const verdicts = z
 const { $schema: _, ...verdictSchema } = z.toJSONSchema(verdicts);
 const judgePrompt = `You grade a personal memory list kept by an assistant. For each statement, decide whether the list satisfies it. A "keep" statement passes when some memory says the same thing, worded any way, with the stated scope ("scoped to X" means its condition limits it to X). An "avoid" statement passes when no memory asserts that thing; a memory that rejects or replaces it ("not by region, by division") still passes. Return one check per statement, in the order given.`;
 
-async function grade(c: Case, memories: unknown) {
+async function grade(c: Case, memories: Value) {
   const statements = [
     ...c.keep.map((s) => `keep: ${s}`),
     ...c.avoid.map((s) => `avoid: ${s}`),

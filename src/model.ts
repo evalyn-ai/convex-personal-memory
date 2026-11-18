@@ -67,30 +67,27 @@ export type Validated = {
   outcome: string;
   rejected?: true;
 };
-const reject = (outcome: string): Validated => ({
+export const reject = (outcome: string): Validated => ({
   operations: [],
   outcome,
   rejected: true,
 });
-/** Rejects the whole proposal when it is malformed or uses an unknown
- * category. Otherwise checks each operation on its own: one that does not
+/** Checks each operation of a proposal that parsed as `operations`: one that does not
  * quote the turn, or names an unknown or already-touched memory, is skipped
  * and reported, and the valid ones still apply. Skips blocked topics and
  * refuses adds beyond the cap. A proposal with no valid operation is
  * rejected. */
 export function validateOperations(
-  proposed: unknown,
+  proposed: Operation[],
   input: {
     turn: string;
     memoryIds: string[];
     blockedTopics: string[];
   },
 ): Validated {
-  const parsed = operations.safeParse(proposed);
-  if (!parsed.success) return reject('schema_invalid');
   const invalid = new Set<string>();
   const touched = new Set<string>();
-  const valid = parsed.data.filter((op) => {
+  const valid = proposed.filter((op) => {
     if (!input.turn.includes(op.excerpt)) {
       invalid.add('excerpt_not_in_turn');
       return false;
