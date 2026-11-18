@@ -10,7 +10,7 @@ import schema from './component/schema.js';
 export const modules = {
   './memory.ts': () => import('./component/memory.js'),
   './_generated/api.ts': () => import('./component/_generated/api.js'),
-} satisfies Record<string, () => Promise<unknown>>;
+} satisfies Record<string, () => Promise<object>>;
 
 /**
  * Registers the component with a convex-test instance.

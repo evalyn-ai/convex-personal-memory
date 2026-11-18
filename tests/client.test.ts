@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test';
 import { convexTest } from 'convex-test';
 import { defineSchema } from 'convex/server';
-import type { Value } from 'convex/values';
 import {
   MAX_MEMORIES,
+  type Category,
+  type Operation,
   PersonalMemory,
   validateOperations,
 } from '../src/client/index.js';
@@ -25,7 +26,7 @@ function setup() {
     text: string,
     operations: (claimed: {
       memories: { id: string; text: string }[];
-    }) => Value,
+    }) => Operation[],
     key: string = crypto.randomUUID(),
     namespace = ns,
   ) => {
@@ -47,7 +48,11 @@ function setup() {
     (await run((ctx) => memory.inspect(ctx, namespace))).memories;
   return { t, memory, ns, run, learn, list };
 }
-const add = (text: string, excerpt: string, category = 'preference') => ({
+const add = (
+  text: string,
+  excerpt: string,
+  category: Category = 'preference',
+): Operation => ({
   op: 'add',
   text,
   condition: 'general',
@@ -66,7 +71,7 @@ test('add, update and remove through claimed jobs', async () => {
   await learn(b, ({ memories }) => [
     {
       op: 'update',
-      id: memories[0]?.id,
+      id: memories[0]?.id ?? '',
       text: 'Summary first.',
       condition: 'general',
       excerpt: b,
@@ -84,7 +89,7 @@ test('add, update and remove through claimed jobs', async () => {
   ]);
   const c = 'Forget the ordering preference.';
   await learn(c, ({ memories }) => [
-    { op: 'remove', id: memories[0]?.id, excerpt: c },
+    { op: 'remove', id: memories[0]?.id ?? '', excerpt: c },
   ]);
   expect(await list()).toEqual([]);
 });
@@ -151,6 +156,7 @@ test('rejects proposals that do not quote the turn or name unknown memories', as
   ).toMatchObject({ outcome: 'unknown_memory', accepted: false });
   expect(
     await learn('I like tables.', () => [
+      // @ts-expect-error -- an unknown category must reach the component's schema check
       add('Tables.', 'I like tables.', 'not-a-category'),
     ]),
   ).toMatchObject({ outcome: 'schema_invalid', accepted: false });
@@ -416,7 +422,7 @@ test('a remove makes room for an add in the same proposal', async () => {
       add('B.', 'B first'),
       {
         op: 'remove',
-        id: memories.find((m) => m.text === 'A.')?.id,
+        id: memories.find((m) => m.text === 'A.')?.id ?? '',
         excerpt: 'drop A',
       },
     ]),
