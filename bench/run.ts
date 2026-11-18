@@ -30,10 +30,11 @@ if (!apiKey || !args.model)
 const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
 
 type Message = { role: 'system' | 'user'; content: string };
-async function chat(
+async function chat<T>(
   model: string,
   messages: Message[],
   format: { name: string; schema: unknown },
+  result: z.ZodType<T>,
 ) {
   for (let attempt = 0; ; attempt++) {
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -55,7 +56,7 @@ async function chat(
       const json = (await response.json()) as {
         choices: { message: { content: string } }[];
       };
-      return JSON.parse(json.choices[0]?.message.content ?? '');
+      return result.parse(JSON.parse(json.choices[0]?.message.content ?? ''));
     }
     if (attempt >= 2 || (response.status !== 429 && response.status < 500))
       throw new Error(`${response.status}: ${await response.text()}`);
@@ -79,12 +80,12 @@ async function learn(c: Case) {
     const claimed =
       jobId && (await t.mutation(api.memory.claim, { namespace, jobId }));
     if (!jobId || !claimed) continue;
-    const reply = await chat(
+    const { operations } = await chat(
       args.model as string,
       memoryUpdateMessages(claimed.memories, claimed.text),
       memoryResponseFormat(),
+      memoryUpdate,
     );
-    const { operations } = memoryUpdate.parse(reply);
     await t.mutation(api.memory.ingest, { namespace, jobId, operations });
   }
   return t.query(api.memory.recall, { namespace });
@@ -107,15 +108,14 @@ async function grade(c: Case, memories: Value) {
     ...c.keep.map((s) => `keep: ${s}`),
     ...c.avoid.map((s) => `avoid: ${s}`),
   ];
-  const { checks } = verdicts.parse(
-    await chat(
-      args.judge ?? (args.model as string),
-      [
-        { role: 'system', content: judgePrompt },
-        { role: 'user', content: JSON.stringify({ memories, statements }) },
-      ],
-      { name: 'memory_grade', schema: verdictSchema },
-    ),
+  const { checks } = await chat(
+    args.judge ?? (args.model as string),
+    [
+      { role: 'system', content: judgePrompt },
+      { role: 'user', content: JSON.stringify({ memories, statements }) },
+    ],
+    { name: 'memory_grade', schema: verdictSchema },
+    verdicts,
   );
   return statements.map((statement, i) => ({
     statement,
