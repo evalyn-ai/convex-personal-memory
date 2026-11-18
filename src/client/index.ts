@@ -163,7 +163,7 @@ export class PersonalMemory {
         {
           op: 'add',
           text,
-          condition: statement.condition?.trim() || 'general',
+          condition: (statement.condition ?? '').trim() || 'general',
           category: statement.category,
           excerpt: text,
         },
