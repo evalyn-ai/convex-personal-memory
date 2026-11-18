@@ -258,8 +258,9 @@ export class PersonalMemory {
     ctx: RunQueryCtx,
     cursor?: string,
   ): Promise<{ namespaces: string[]; cursor: string | null }> {
-    return ctx.runQuery(this.component.memory.listNamespaces, {
-      ...(cursor ? { cursor } : {}),
-    });
+    return ctx.runQuery(
+      this.component.memory.listNamespaces,
+      cursor ? { cursor } : {},
+    );
   }
 }
