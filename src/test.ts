@@ -7,10 +7,10 @@ import schema from './component/schema.js';
 
 /** The component's modules for convex-test, listed explicitly so runners
  * without `import.meta.glob` (bun, node) can load them. */
-export const modules: Record<string, () => Promise<unknown>> = {
+export const modules = {
   './memory.ts': () => import('./component/memory.js'),
   './_generated/api.ts': () => import('./component/_generated/api.js'),
-};
+} satisfies Record<string, () => Promise<unknown>>;
 
 /**
  * Registers the component with a convex-test instance.
