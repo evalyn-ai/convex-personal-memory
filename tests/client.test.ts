@@ -17,10 +17,14 @@ function setup() {
   const t = convexTest(defineSchema({}), {
     './_generated/api.ts': async () => ({}),
   });
+
   const memory = new PersonalMemory(register(t));
   const ns = 'synthetic-user';
+
   type Ctx = Parameters<Parameters<typeof t.run>[0]>[0];
+
   const run = <T>(fn: (ctx: Ctx) => Promise<T>) => t.run(fn);
+
   /** Queue, claim and apply one turn with the given operations. */
   const learn = async (
     text: string,
@@ -37,17 +41,23 @@ function setup() {
         text,
       }),
     );
+
     if (!jobId) return null;
     const claimed = await run((ctx) => memory.claim(ctx, namespace, jobId));
+
     if (!claimed) return null;
+
     return run((ctx) =>
       memory.ingest(ctx, namespace, jobId, operations(claimed)),
     );
   };
+
   const list = async (namespace = ns) =>
     (await run((ctx) => memory.inspect(ctx, namespace))).memories;
+
   return { t, memory, ns, run, learn, list };
 }
+
 const add = (
   text: string,
   excerpt: string,
@@ -96,6 +106,7 @@ test('add, update and remove through claimed jobs', async () => {
 
 test('latest wins and Undo restores the previous version', async () => {
   const { memory, ns, run, learn, list } = setup();
+
   const id = (
     await run((ctx) =>
       memory.remember(ctx, ns, {
@@ -106,6 +117,7 @@ test('latest wins and Undo restores the previous version', async () => {
       }),
     )
   ).memoryIds[0] as string;
+
   const turn = 'I now want daily digests.';
   await learn(turn, () => [
     {
@@ -199,6 +211,7 @@ test('blocked topics are skipped and paused learning queues nothing', async () =
 
 test('the list holds at most MAX_MEMORIES memories', async () => {
   const { memory, ns, run, learn } = setup();
+
   for (let n = 0; n < MAX_MEMORIES; n++)
     await learn(`Rule ${n}.`, () => [add(`Rule ${n}.`, `Rule ${n}.`)]);
   expect(
@@ -215,6 +228,7 @@ test('the list holds at most MAX_MEMORIES memories', async () => {
     ),
   ).toMatchObject({ accepted: false, outcome: 'no_change,memory_full' });
 });
+
 test('namespaces are isolated', async () => {
   const { memory, run, learn, list } = setup();
   const turn = 'I prefer charts.';
@@ -240,6 +254,7 @@ test('forgotten memories cannot return from a replayed or late job', async () =>
   const { memory, ns, run, learn, list } = setup();
   const turn = 'I prefer bullet points.';
   await learn(turn, () => [add('Bullet points.', turn)], 'run-1');
+
   // A second job for another turn is queued before the user forgets.
   const late = await run((ctx) =>
     memory.enqueueTurn(ctx, ns, {
@@ -248,6 +263,7 @@ test('forgotten memories cannot return from a replayed or late job', async () =>
       text: 'Bullet points, always.',
     }),
   );
+
   expect(await run((ctx) => memory.forget(ctx, ns))).toBe(1);
   // The replayed turn is refused, the late job is withdrawn.
   expect(
@@ -271,6 +287,7 @@ test('forgetting tombstones the source turn whatever its key format', async () =
   // The component as its own root, so the test can evict the job record as
   // the bounded job history eventually does.
   const t = convexTest(schema, modules);
+
   const turn = {
     namespace: 'n',
     key: 'message:42',
@@ -278,16 +295,20 @@ test('forgetting tombstones the source turn whatever its key format', async () =
     text: 'I prefer maps.',
     at: 1,
   };
+
   const learn = async () => {
     const jobId = await t.mutation(componentApi.memory.enqueue, turn);
+
     if (!jobId) return null;
     await t.mutation(componentApi.memory.claim, { namespace: 'n', jobId });
+
     return t.mutation(componentApi.memory.ingest, {
       namespace: 'n',
       jobId,
       operations: [add('Maps.', 'I prefer maps.')],
     });
   };
+
   expect(await learn()).toMatchObject({ accepted: true });
   await t.mutation(componentApi.memory.forget, { namespace: 'n' });
   await t.run(async (ctx) => {
@@ -302,6 +323,7 @@ test("a user's correction wins over a job claimed before it", async () => {
   await learn('Remember A.', () => [add('A', 'Remember A.')]);
   const id = (await list())[0]?.id as string;
   const turn = 'Make it X.';
+
   const jobId = (await run((ctx) =>
     memory.enqueueTurn(ctx, ns, {
       key: 'turn:late',
@@ -309,6 +331,7 @@ test("a user's correction wins over a job claimed before it", async () => {
       text: turn,
     }),
   )) as string;
+
   await run((ctx) => memory.claim(ctx, ns, jobId));
   await run((ctx) =>
     memory.correct(ctx, ns, {
@@ -336,6 +359,7 @@ test("a user's correction wins over a job claimed before it", async () => {
 
 test('failures keep only content-free outcomes; withdrawn sources are refused', async () => {
   const { memory, ns, run } = setup();
+
   const jobId = (await run((ctx) =>
     memory.enqueueTurn(ctx, ns, {
       key: 'turn:x',
@@ -343,6 +367,7 @@ test('failures keep only content-free outcomes; withdrawn sources are refused', 
       text: 'secret plan',
     }),
   )) as string;
+
   await run((ctx) =>
     memory.fail(ctx, ns, jobId, { outcome: 'runtime_http_503', final: true }),
   );
@@ -360,10 +385,12 @@ test('failures keep only content-free outcomes; withdrawn sources are refused', 
 
 test('purge deletes one namespace and listNamespaces finds the rest', async () => {
   const { memory, run, learn, list } = setup();
+
   for (const ns of ['["c1","u1"]', '["c2","u1"]', '["c1","u2"]']) {
     const turn = 'I prefer charts.';
     await learn(turn, () => [add('Charts.', turn)], ns, ns);
   }
+
   await run((ctx) => memory.forget(ctx, '["c1","u1"]'));
   expect(await run((ctx) => memory.purge(ctx, '["c1","u1"]'))).toBe(true);
   expect(await run((ctx) => memory.listNamespaces(ctx))).toEqual({
@@ -399,6 +426,7 @@ test('a second Undo after an update is refused, not a deletion', async () => {
   const { memory, ns, run, learn, list } = setup();
   await learn('A rule.', () => [add('A.', 'A rule.')]);
   const id = (await list())[0]?.id as string;
+
   for (const [turn, text] of [
     ['B rule.', 'B.'],
     ['C rule.', 'C.'],
@@ -413,6 +441,7 @@ test('a second Undo after an update is refused, not a deletion', async () => {
 
 test('a remove makes room for an add in the same proposal', async () => {
   const { learn, list } = setup();
+
   for (let n = 1; n < MAX_MEMORIES; n++)
     await learn(`Rule ${n}.`, () => [add(`Rule ${n}.`, `Rule ${n}.`)]);
   await learn('A first.', () => [add('A.', 'A first.')]);
@@ -437,18 +466,23 @@ test('an older turn finishing last does not override a newer one', async () => {
   const { memory, ns, run, learn, list } = setup();
   await learn('Remember A.', () => [add('A', 'Remember A.')]);
   const id = (await list())[0]?.id as string;
+
   const queue = (key: string, text: string, at: number) =>
     run((ctx) =>
       memory.enqueueTurn(ctx, ns, { key, source: key, text, at }),
     ) as Promise<string>;
+
   const now = Date.now();
   const older = await queue('turn:old', 'Use B.', now + 1);
   const newer = await queue('turn:new', 'Use C.', now + 2);
+
   for (const jobId of [older, newer])
     await run((ctx) => memory.claim(ctx, ns, jobId));
+
   const update = (text: string, excerpt: string) => [
     { op: 'update', id, text, condition: 'general', excerpt },
   ];
+
   await run((ctx) => memory.ingest(ctx, ns, newer, update('C', 'Use C.')));
   await run((ctx) => memory.ingest(ctx, ns, older, update('B', 'Use B.')));
   expect((await list()).map((m) => m.text)).toEqual(['C']);
@@ -456,12 +490,15 @@ test('an older turn finishing last does not override a newer one', async () => {
 
 test('retryable failures count toward the pending-work bound', async () => {
   const { memory, ns, run } = setup();
+
   for (let i = 0; i < 20; i++) {
     const jobId = (await run((ctx) =>
       memory.enqueueTurn(ctx, ns, { key: `turn:${i}`, source: 's', text: 'x' }),
     )) as string;
+
     await run((ctx) => memory.fail(ctx, ns, jobId, { final: false }));
   }
+
   expect(
     await run((ctx) =>
       memory.enqueueTurn(ctx, ns, { key: 'turn:20', source: 's', text: 'x' }),

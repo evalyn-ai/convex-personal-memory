@@ -4,6 +4,7 @@ import { v } from 'convex/values';
 /** Categories are the caller's option (see `memoryOptions`); stored as a
  * plain string so existing rows written with the default union stay valid. */
 export const categoryValidator = v.string();
+
 export const evidenceValidator = v.object({
   id: v.string(),
   excerpt: v.string(),
@@ -15,6 +16,7 @@ export const evidenceValidator = v.object({
     v.literal('correction'),
   ),
 });
+
 export const jobStatus = v.union(
   v.literal('pending'),
   v.literal('running'),

@@ -26,8 +26,10 @@ export function register<
   Schema extends SchemaDefinition<GenericSchema, boolean>,
 >(t: TestConvex<Schema>, name = 'personalMemory') {
   t.registerComponent(name, schema, modules);
+
   const components = componentsGeneric() as AnyChildComponents &
     Record<string, ComponentApi>;
+
   return components[name] as ComponentApi;
 }
 
@@ -36,4 +38,5 @@ export function register<
 export const componentApi = api;
 
 export { schema };
+
 export default { register, schema, modules };

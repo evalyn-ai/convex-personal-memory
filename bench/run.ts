@@ -24,12 +24,16 @@ const { values: args } = parseArgs({
     cases: { type: 'string' },
   },
 });
+
 const apiKey = process.env.OPENAI_API_KEY;
+
 if (!apiKey || !args.model)
   throw new Error('Set OPENAI_API_KEY and pass --model <id>.');
+
 const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
 
 type Message = { role: 'system' | 'user'; content: string };
+
 async function chat<T>(
   model: string,
   messages: Message[],
@@ -52,12 +56,15 @@ async function chat<T>(
         },
       }),
     });
+
     if (response.ok) {
       const json = (await response.json()) as {
         choices: { message: { content: string } }[];
       };
+
       return result.parse(JSON.parse(json.choices[0]?.message.content ?? ''));
     }
+
     if (attempt >= 2 || (response.status !== 429 && response.status < 500))
       throw new Error(`${response.status}: ${await response.text()}`);
     await Bun.sleep(2000 * (attempt + 1));
@@ -67,9 +74,11 @@ async function chat<T>(
 async function learn(c: Case) {
   const t = convexTest(schema, modules);
   const namespace = c.id;
+
   for (const [i, text] of c.turns.entries()) {
     const key = `turn:${i}`;
     const at = Date.parse('2026-09-01T09:00:00Z') + i * 60_000;
+
     const jobId = await t.mutation(api.memory.enqueue, {
       namespace,
       key,
@@ -77,17 +86,22 @@ async function learn(c: Case) {
       text,
       at,
     });
+
     const claimed =
       jobId && (await t.mutation(api.memory.claim, { namespace, jobId }));
+
     if (!jobId || !claimed) continue;
+
     const { operations } = await chat(
       args.model as string,
       memoryUpdateMessages(claimed.memories, claimed.text),
       memoryResponseFormat(),
       memoryUpdate,
     );
+
     await t.mutation(api.memory.ingest, { namespace, jobId, operations });
   }
+
   return t.query(api.memory.recall, { namespace });
 }
 
@@ -100,6 +114,7 @@ const verdicts = z
     ),
   })
   .strict();
+
 const { $schema: _, ...verdictSchema } = z.toJSONSchema(verdicts);
 const judgePrompt = `You grade a personal memory list kept by an assistant. For each statement, decide whether the list satisfies it. A "keep" statement passes when some memory says the same thing, worded any way, with the stated scope ("scoped to X" means its condition limits it to X). An "avoid" statement passes when no memory asserts that thing; a memory that rejects or replaces it ("not by region, by division") still passes. Return one check per statement, in the order given.`;
 
@@ -108,6 +123,7 @@ async function grade(c: Case, memories: Value) {
     ...c.keep.map((s) => `keep: ${s}`),
     ...c.avoid.map((s) => `avoid: ${s}`),
   ];
+
   const { checks } = await chat(
     args.judge ?? (args.model as string),
     [
@@ -117,6 +133,7 @@ async function grade(c: Case, memories: Value) {
     { name: 'memory_grade', schema: verdictSchema },
     verdicts,
   );
+
   return statements.map((statement, i) => ({
     statement,
     pass: checks[i]?.pass ?? false,
@@ -127,15 +144,19 @@ async function grade(c: Case, memories: Value) {
 const picked = args.cases
   ? cases.filter((c) => args.cases?.split(',').includes(c.id))
   : cases;
+
 let passed = 0;
 let total = 0;
+
 for (const c of picked) {
   const memories = await learn(c);
   const checks = await grade(c, memories);
   passed += checks.filter((x) => x.pass).length;
   total += checks.length;
   console.log(`${checks.every((x) => x.pass) ? 'PASS' : 'FAIL'} ${c.id}`);
+
   for (const x of checks.filter((x) => !x.pass))
     console.log(`  ✗ ${x.statement} — ${x.why}`);
 }
+
 console.log(`\n${passed}/${total} checks passed across ${picked.length} cases`);

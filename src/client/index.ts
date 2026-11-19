@@ -8,9 +8,11 @@ import type { ComponentApi } from '../component/_generated/component.js';
 import type { Category, MemoryItem, RecallItem } from '../model.js';
 
 export * from '../model.js';
+
 export type { ComponentApi };
 
 type RunQueryCtx = { runQuery: GenericQueryCtx<GenericDataModel>['runQuery'] };
+
 type RunMutationCtx = RunQueryCtx & {
   runMutation: GenericMutationCtx<GenericDataModel>['runMutation'];
 };
@@ -22,6 +24,7 @@ export type ControlCommand =
   | 'resume-recall'
   | 'block-topic'
   | 'unblock-topic';
+
 export type IngestResult = {
   outcome: string;
   memoryIds: string[];
@@ -135,6 +138,7 @@ export class PersonalMemory {
     const state = await ctx.runQuery(this.component.memory.inspect, {
       namespace,
     });
+
     return { ...state, memories: state.memories as MemoryItem[] };
   }
 
@@ -152,6 +156,7 @@ export class PersonalMemory {
     },
   ): Promise<IngestResult> {
     const text = statement.text.trim();
+
     return ctx.runMutation(this.component.memory.ingest, {
       namespace,
       explicit: {
