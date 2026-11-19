@@ -5,7 +5,7 @@ import type {
 } from 'convex/server';
 import type { Value } from 'convex/values';
 import type { ComponentApi } from '../component/_generated/component.js';
-import type { Category, MemoryItem, RecallItem } from '../model.js';
+import type { Category, ClaimedMemory, RecallItem } from '../model.js';
 
 export * from '../model.js';
 
@@ -72,27 +72,8 @@ export class PersonalMemory {
     ctx: RunMutationCtx,
     namespace: string,
     jobId: string,
-  ): Promise<{
-    text: string;
-    memories: {
-      id: string;
-      text: string;
-      condition: string;
-      category: Category;
-    }[];
-  } | null> {
-    return (await ctx.runMutation(this.component.memory.claim, {
-      namespace,
-      jobId,
-    })) as {
-      text: string;
-      memories: {
-        id: string;
-        text: string;
-        condition: string;
-        category: Category;
-      }[];
-    } | null;
+  ): Promise<{ text: string; memories: ClaimedMemory[] } | null> {
+    return ctx.runMutation(this.component.memory.claim, { namespace, jobId });
   }
 
   /** Applies the update model's operations to a claimed job. The component
@@ -127,19 +108,13 @@ export class PersonalMemory {
 
   /** Memories for an answering model, newest first and bounded. Empty while
    * recall is paused. */
-  async recall(ctx: RunQueryCtx, namespace: string): Promise<RecallItem[]> {
-    return (await ctx.runQuery(this.component.memory.recall, {
-      namespace,
-    })) as RecallItem[];
+  recall(ctx: RunQueryCtx, namespace: string): Promise<RecallItem[]> {
+    return ctx.runQuery(this.component.memory.recall, { namespace });
   }
 
   /** Everything the user may see about their memory. */
-  async inspect(ctx: RunQueryCtx, namespace: string) {
-    const state = await ctx.runQuery(this.component.memory.inspect, {
-      namespace,
-    });
-
-    return { ...state, memories: state.memories as MemoryItem[] };
+  inspect(ctx: RunQueryCtx, namespace: string) {
+    return ctx.runQuery(this.component.memory.inspect, { namespace });
   }
 
   /** An explicit statement the user asked to remember, e.g. from a form.

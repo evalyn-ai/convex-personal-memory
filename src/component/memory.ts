@@ -1,4 +1,5 @@
 import { ConvexError, v } from 'convex/values';
+import { z } from 'zod/v4';
 import {
   CATEGORIES,
   type Evidence,
@@ -24,12 +25,18 @@ import { categoryValidator, evidenceValidator, jobStatus } from './schema.js';
 /** Parent-only API. The app derives `namespace` from its own authenticated
  * session; this component never sees users, reads app tables or authorizes
  * anyone. Every row is keyed by the namespace (stored as `scope`). */
-const defaults = {
+const defaults: Omit<
+  Doc<'memoryControls'>,
+  '_id' | '_creationTime' | 'scope'
+> = {
   learning: true,
   recall: true,
-  blockedTopics: [] as string[],
+  blockedTopics: [],
   generation: 0,
 };
+
+/** What `enqueue` stores as a job's `input`. */
+const jobInput = z.object({ text: z.string(), at: z.number() });
 
 const memoryItem = v.object({
   id: v.string(),
@@ -262,7 +269,7 @@ export const ingest = mutation({
   handler: async (ctx, { namespace: scope, ...args }) => {
     const c = await ensureControls(ctx, scope);
     const items = await rows(ctx, scope);
-    const memoryIds = items.map((i) => i._id as string);
+    const memoryIds: string[] = items.map((i) => i._id);
 
     if (args.explicit) {
       const id = `edit:${args.explicit.requestId}`;
@@ -325,7 +332,7 @@ export const ingest = mutation({
       (await tombstoned(ctx, scope, j.key))
     )
       return finish('stale_generation', 'obsolete');
-    const input = JSON.parse(j.input) as { text: string; at: number };
+    const input = jobInput.parse(JSON.parse(j.input));
     const proposal = operations.safeParse(args.operations);
 
     const result = proposal.success
@@ -429,7 +436,7 @@ export const correct = mutation({
   handler: async (ctx, { namespace: scope, ...args }) => {
     if (
       args.category &&
-      !(CATEGORIES as readonly string[]).includes(args.category)
+      !CATEGORIES.some((category) => category === args.category)
     )
       throw new ConvexError('Unknown memory category.');
     const item = await row(ctx, scope, args.memoryId);
@@ -644,7 +651,7 @@ export const claim = mutation({
     await ctx.db.patch(j._id, { status: 'running', updatedAt: Date.now() });
 
     return {
-      text: (JSON.parse(j.input) as { text: string }).text,
+      text: jobInput.parse(JSON.parse(j.input)).text,
       memories: (await rows(ctx, scope)).map(
         ({ _id, text, condition, category }) => ({
           id: _id,

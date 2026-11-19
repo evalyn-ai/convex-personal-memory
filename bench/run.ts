@@ -30,7 +30,12 @@ const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey || !args.model)
   throw new Error('Set OPENAI_API_KEY and pass --model <id>.');
 
+const updateModel = args.model;
 const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
+
+const completion = z.object({
+  choices: z.array(z.object({ message: z.object({ content: z.string() }) })),
+});
 
 type Message = { role: 'system' | 'user'; content: string };
 
@@ -58,9 +63,7 @@ async function chat<T>(
     });
 
     if (response.ok) {
-      const json = (await response.json()) as {
-        choices: { message: { content: string } }[];
-      };
+      const json = completion.parse(await response.json());
 
       return result.parse(JSON.parse(json.choices[0]?.message.content ?? ''));
     }
@@ -93,7 +96,7 @@ async function learn(c: Case) {
     if (!jobId || !claimed) continue;
 
     const { operations } = await chat(
-      args.model as string,
+      updateModel,
       memoryUpdateMessages(claimed.memories, claimed.text),
       memoryResponseFormat(),
       memoryUpdate,
@@ -125,7 +128,7 @@ async function grade(c: Case, memories: Value) {
   ];
 
   const { checks } = await chat(
-    args.judge ?? (args.model as string),
+    args.judge ?? updateModel,
     [
       { role: 'system', content: judgePrompt },
       { role: 'user', content: JSON.stringify({ memories, statements }) },

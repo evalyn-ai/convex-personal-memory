@@ -27,9 +27,12 @@ export function register<
 >(t: TestConvex<Schema>, name = 'personalMemory') {
   t.registerComponent(name, schema, modules);
 
+  // SAFETY: componentsGeneric() resolves any mount name to a reference, and the
+  // registerComponent call above mounts this component's schema and modules at `name`.
   const components = componentsGeneric() as AnyChildComponents &
     Record<string, ComponentApi>;
 
+  // SAFETY: the proxy returns a reference for every name, never undefined.
   return components[name] as ComponentApi;
 }
 
