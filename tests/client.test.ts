@@ -13,6 +13,13 @@ import { componentApi, modules, register, schema } from '../src/test.js';
 
 /** A bare app that mounts the component; every call goes through the client
  * inside `t.run`, as an app's own mutations and queries would. */
+/** Returns `value`, failing the test when it is missing. */
+function defined<T>(value: T | null | undefined, what: string): T {
+  if (value === null || value === undefined) throw new Error(`Missing ${what}`);
+
+  return value;
+}
+
 function setup() {
   const t = convexTest(defineSchema({}), {
     './_generated/api.ts': async () => ({}),
@@ -107,16 +114,16 @@ test('add, update and remove through claimed jobs', async () => {
 test('latest wins and Undo restores the previous version', async () => {
   const { memory, ns, run, learn, list } = setup();
 
-  const id = (
-    await run((ctx) =>
-      memory.remember(ctx, ns, {
-        requestId: 'r1',
-        text: 'Weekly digests.',
-        category: 'preference',
-        source: 'settings',
-      }),
-    )
-  ).memoryIds[0] as string;
+  const { memoryIds } = await run((ctx) =>
+    memory.remember(ctx, ns, {
+      requestId: 'r1',
+      text: 'Weekly digests.',
+      category: 'preference',
+      source: 'settings',
+    }),
+  );
+
+  const id = defined(memoryIds[0], 'remembered memory');
 
   const turn = 'I now want daily digests.';
   await learn(turn, () => [
@@ -233,7 +240,7 @@ test('namespaces are isolated', async () => {
   const { memory, run, learn, list } = setup();
   const turn = 'I prefer charts.';
   await learn(turn, () => [add('Charts.', turn)], 'a', 'user-a');
-  const id = (await list('user-a'))[0]?.id as string;
+  const id = defined((await list('user-a'))[0], 'memory').id;
   expect(await list('user-b')).toEqual([]);
   expect(await run((ctx) => memory.recall(ctx, 'user-b'))).toEqual([]);
   // Another namespace cannot touch the memory by id.
@@ -269,10 +276,12 @@ test('forgotten memories cannot return from a replayed or late job', async () =>
   expect(
     await learn(turn, () => [add('Bullet points.', turn)], 'run-1'),
   ).toBeNull();
-  expect(await run((ctx) => memory.claim(ctx, ns, late as string))).toBeNull();
+  expect(
+    await run((ctx) => memory.claim(ctx, ns, defined(late, 'late job'))),
+  ).toBeNull();
   expect(
     await run((ctx) =>
-      memory.ingest(ctx, ns, late as string, [
+      memory.ingest(ctx, ns, defined(late, 'late job'), [
         add('Bullet points.', 'Bullet points, always.'),
       ]),
     ),
@@ -321,16 +330,19 @@ test('forgetting tombstones the source turn whatever its key format', async () =
 test("a user's correction wins over a job claimed before it", async () => {
   const { memory, ns, run, learn, list } = setup();
   await learn('Remember A.', () => [add('A', 'Remember A.')]);
-  const id = (await list())[0]?.id as string;
+  const id = defined((await list())[0], 'memory').id;
   const turn = 'Make it X.';
 
-  const jobId = (await run((ctx) =>
-    memory.enqueueTurn(ctx, ns, {
-      key: 'turn:late',
-      source: 'late',
-      text: turn,
-    }),
-  )) as string;
+  const jobId = defined(
+    await run((ctx) =>
+      memory.enqueueTurn(ctx, ns, {
+        key: 'turn:late',
+        source: 'late',
+        text: turn,
+      }),
+    ),
+    'queued job',
+  );
 
   await run((ctx) => memory.claim(ctx, ns, jobId));
   await run((ctx) =>
@@ -360,13 +372,16 @@ test("a user's correction wins over a job claimed before it", async () => {
 test('failures keep only content-free outcomes; withdrawn sources are refused', async () => {
   const { memory, ns, run } = setup();
 
-  const jobId = (await run((ctx) =>
-    memory.enqueueTurn(ctx, ns, {
-      key: 'turn:x',
-      source: 'conversation-1',
-      text: 'secret plan',
-    }),
-  )) as string;
+  const jobId = defined(
+    await run((ctx) =>
+      memory.enqueueTurn(ctx, ns, {
+        key: 'turn:x',
+        source: 'conversation-1',
+        text: 'secret plan',
+      }),
+    ),
+    'queued job',
+  );
 
   await run((ctx) =>
     memory.fail(ctx, ns, jobId, { outcome: 'runtime_http_503', final: true }),
@@ -425,7 +440,7 @@ test('validateOperations is usable on its own', () => {
 test('a second Undo after an update is refused, not a deletion', async () => {
   const { memory, ns, run, learn, list } = setup();
   await learn('A rule.', () => [add('A.', 'A rule.')]);
-  const id = (await list())[0]?.id as string;
+  const id = defined((await list())[0], 'memory').id;
 
   for (const [turn, text] of [
     ['B rule.', 'B.'],
@@ -465,12 +480,12 @@ test('a remove makes room for an add in the same proposal', async () => {
 test('an older turn finishing last does not override a newer one', async () => {
   const { memory, ns, run, learn, list } = setup();
   await learn('Remember A.', () => [add('A', 'Remember A.')]);
-  const id = (await list())[0]?.id as string;
+  const id = defined((await list())[0], 'memory').id;
 
   const queue = (key: string, text: string, at: number) =>
     run((ctx) =>
       memory.enqueueTurn(ctx, ns, { key, source: key, text, at }),
-    ) as Promise<string>;
+    ).then((jobId) => defined(jobId, key));
 
   const now = Date.now();
   const older = await queue('turn:old', 'Use B.', now + 1);
@@ -492,9 +507,16 @@ test('retryable failures count toward the pending-work bound', async () => {
   const { memory, ns, run } = setup();
 
   for (let i = 0; i < 20; i++) {
-    const jobId = (await run((ctx) =>
-      memory.enqueueTurn(ctx, ns, { key: `turn:${i}`, source: 's', text: 'x' }),
-    )) as string;
+    const jobId = defined(
+      await run((ctx) =>
+        memory.enqueueTurn(ctx, ns, {
+          key: `turn:${i}`,
+          source: 's',
+          text: 'x',
+        }),
+      ),
+      'queued job',
+    );
 
     await run((ctx) => memory.fail(ctx, ns, jobId, { final: false }));
   }
